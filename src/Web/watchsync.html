@@ -1,0 +1,195 @@
+<div id="watchsyncPage" data-role="page" class="page type-interior pluginConfigurationPage ws" data-title="WatchSync"
+     data-require="emby-input,emby-button,emby-checkbox,emby-select" data-controller="__plugin/watchsyncjs">
+<style>
+.ws{--ws-accent:#4fd1c5;--ws-panel:rgba(128,128,128,.10);--ws-line:rgba(128,128,128,.25);--ws-ok:#48bb78;--ws-bad:#f56565;--ws-warn:#ecc94b}
+.ws .ws-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 1.4em;border-bottom:1px solid var(--ws-line)}
+.ws .ws-tab{background:none;border:0;color:inherit;opacity:.65;padding:.7em 1em;font:inherit;cursor:pointer;position:relative}
+.ws .ws-tab:hover{opacity:1}
+.ws .ws-tab.on{opacity:1;font-weight:600}
+.ws .ws-tab.on::after{content:"";position:absolute;left:1em;right:1em;bottom:-1px;height:3px;border-radius:2px;background:var(--ws-accent);box-shadow:0 0 10px rgba(79,209,197,.55)}
+.ws .ws-pane{display:none}.ws .ws-pane.on{display:block}
+.ws .ws-card{background:var(--ws-panel);border:1px solid var(--ws-line);border-radius:10px;padding:1.1em 1.3em;margin-bottom:1.1em;overflow-wrap:anywhere}
+.ws .ws-card h3{margin:0 0 .6em;font-size:1em;font-weight:500;opacity:.75}
+.ws .ws-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1em;margin-bottom:1.1em}
+.ws .ws-grid .ws-card{margin:0}
+.ws .ws-big{font-size:2em;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.ws .ws-phase{font-size:2.2em;font-weight:700;line-height:1.1}
+.ws .ws-muted{opacity:.7}
+.ws .ws-small{font-size:.85em}
+.ws .ws-row{display:flex;gap:.8em;align-items:center;flex-wrap:wrap}
+.ws .ws-between{justify-content:space-between;align-items:flex-start}
+.ws .ws-bar{position:relative;height:30px;margin:1.1em 0 .5em;border-radius:6px;overflow:hidden;background:rgba(128,128,128,.18)}
+.ws .ws-fill{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,#2c9c92,var(--ws-accent));transition:width .6s ease}
+.ws .ws-bar.running .ws-fill{background-image:repeating-linear-gradient(-45deg,rgba(255,255,255,.12) 0 10px,transparent 10px 20px),linear-gradient(90deg,#2c9c92,var(--ws-accent));background-size:28px 28px,auto;animation:ws-stripes 1s linear infinite}
+@keyframes ws-stripes{to{background-position:28px 0,0 0}}
+.ws .ws-wave{display:flex;gap:3px;align-items:flex-end;height:1em;margin-right:.5em}
+.ws .ws-wave i{width:3px;background:var(--ws-accent);border-radius:2px;height:30%;opacity:.5}
+.ws .ws-wave.busy i{opacity:1;animation:ws-wave 1s ease-in-out infinite}
+.ws .ws-wave.busy i:nth-child(2){animation-delay:.15s}.ws .ws-wave.busy i:nth-child(3){animation-delay:.3s}.ws .ws-wave.busy i:nth-child(4){animation-delay:.45s}
+@keyframes ws-wave{0%,100%{height:25%}50%{height:100%}}
+@media (prefers-reduced-motion:reduce){.ws *{animation:none!important;transition:none!important}}
+.ws .ws-log{background:rgba(128,128,128,.12);border:1px solid var(--ws-line);border-radius:8px;font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;padding:.6em .9em;overflow:auto}
+.ws .ws-log .WARNING{color:var(--ws-warn)}.ws .ws-log .ERROR{color:var(--ws-bad)}
+.ws #wsLog{height:62vh}
+.ws table{width:100%;border-collapse:collapse}
+.ws th,.ws td{text-align:left;padding:.5em .6em;border-bottom:1px solid var(--ws-line);vertical-align:middle}
+.ws th{font-weight:500;opacity:.7;white-space:nowrap}
+.ws td.num,.ws th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ws .ws-tablewrap{overflow-x:auto}
+.ws .ws-badge{display:inline-block;font-size:.75em;padding:.1em .6em;border-radius:99px;border:1px solid var(--ws-line);white-space:nowrap}
+.ws .ws-badge.ok{background:rgba(72,187,120,.18);border-color:rgba(72,187,120,.5)}
+.ws .ws-badge.failed{background:rgba(245,101,101,.18);border-color:rgba(245,101,101,.5)}
+.ws .ws-badge.timeout{background:rgba(236,201,75,.18);border-color:rgba(236,201,75,.5)}
+.ws .ws-alert{border:1px solid var(--ws-line);border-left:4px solid var(--ws-accent);background:var(--ws-panel);border-radius:8px;padding:.8em 1em;margin-bottom:1.1em}
+.ws .ws-alert.bad{border-left-color:var(--ws-bad)}.ws .ws-alert.warn{border-left-color:var(--ws-warn)}
+.ws .ws-num-ok{color:var(--ws-ok)}.ws .ws-num-bad{color:var(--ws-bad)}.ws .ws-num-warn{color:var(--ws-warn)}
+.ws .ws-current{list-style:none;margin:.3em 0 0;padding:0}
+.ws .ws-current li{padding:.2em 0}
+.ws .ws-current li::before{content:"▸ ";color:var(--ws-accent)}
+.ws .ws-paths{font-size:.85em;opacity:.7}
+.ws .ws-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.1em}
+@media (max-width:900px){.ws .ws-cols{grid-template-columns:1fr}}
+.ws .ws-meter{height:4px;border-radius:2px;background:rgba(128,128,128,.25);margin-top:.35em;overflow:hidden}
+.ws .ws-meter i{display:block;height:100%;background:var(--ws-accent)}
+.ws .ws-issue{color:var(--ws-warn);font-size:.85em}
+.ws .ws-ok{color:var(--ws-ok)}
+.ws .ws-src{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:.2em 1em;align-items:center}
+@media (max-width:700px){.ws .ws-src{grid-template-columns:1fr}}
+.ws .ws-pair{display:grid;grid-template-columns:1fr auto 1fr auto auto;gap:.6em;align-items:center;margin-bottom:.6em}
+.ws .ws-pair select{width:100%}
+.ws select.ws-native{background:transparent;color:inherit;border:1px solid var(--ws-line);border-radius:6px;padding:.55em .6em;font:inherit}
+.ws select.ws-native option{color:#000}
+.ws details summary{cursor:pointer;opacity:.85}
+</style>
+<div data-role="content">
+<div class="content-primary">
+
+  <div class="ws-row ws-between" style="margin-bottom:.4em">
+    <h1 style="margin:0">WatchSync</h1>
+    <div class="ws-row ws-small"><span class="ws-wave" id="wsWave"><i></i><i></i><i></i><i></i></span><span id="wsPill">Connecting</span></div>
+  </div>
+  <p class="ws-muted" style="margin-top:0">Keeps watched status and Continue Watching the same on two servers, per user.</p>
+
+  <div class="ws-tabs">
+    <button type="button" class="ws-tab on" data-tab="status">Status</button>
+    <button type="button" class="ws-tab" data-tab="sources">Sources &amp; users</button>
+    <button type="button" class="ws-tab" data-tab="cw">Continue Watching</button>
+    <button type="button" class="ws-tab" data-tab="settings">Settings</button>
+    <button type="button" class="ws-tab" data-tab="log">Log</button>
+  </div>
+
+  <!-- Status -->
+  <div class="ws-pane on" data-pane="status">
+    <div id="wsAlerts"></div>
+    <div class="ws-card">
+      <div class="ws-row ws-between">
+        <div>
+          <h3>Sync</h3>
+          <div class="ws-phase" id="wsPhase">…</div>
+          <div id="wsDetail" class="ws-muted" style="margin-top:.3em"></div>
+        </div>
+        <div class="ws-row">
+          <button is="emby-button" type="button" class="raised button-submit" id="wsRun"><span>Sync changes now</span></button>
+          <button is="emby-button" type="button" class="raised" id="wsFull"><span>Full sync</span></button>
+          <button is="emby-button" type="button" class="raised" id="wsApply" style="display:none"><span>Apply the preview</span></button>
+        </div>
+      </div>
+    </div>
+    <div id="wsPairs"></div>
+  </div>
+
+  <!-- Sources -->
+  <div class="ws-pane" data-pane="sources">
+    <div class="ws-cols">
+      <div class="ws-card" data-src="A">
+        <h3>Source A</h3>
+        <div class="ws-src">
+          <span>Type</span>
+          <select class="ws-native" data-f="Kind"><option value="local">This Emby server</option><option value="emby">Another Emby server</option><option value="plex">Plex server</option></select>
+          <span class="ws-url">Address</span>
+          <input is="emby-input" type="text" class="ws-url" data-f="Url" placeholder="http://192.168.1.10:8096" />
+          <span class="ws-key">API key / token</span>
+          <input is="emby-input" type="password" class="ws-key" data-f="Key" autocomplete="off" />
+        </div>
+        <div class="ws-small ws-muted ws-keynote" style="margin:.4em 0"></div>
+        <div class="ws-row"><button is="emby-button" type="button" class="raised ws-test"><span>Test and load users</span></button><span class="ws-result ws-small"></span></div>
+      </div>
+      <div class="ws-card" data-src="B">
+        <h3>Source B</h3>
+        <div class="ws-src">
+          <span>Type</span>
+          <select class="ws-native" data-f="Kind"><option value="local">This Emby server</option><option value="emby">Another Emby server</option><option value="plex">Plex server</option></select>
+          <span class="ws-url">Address</span>
+          <input is="emby-input" type="text" class="ws-url" data-f="Url" placeholder="http://192.168.1.10:32400" />
+          <span class="ws-key">API key / token</span>
+          <input is="emby-input" type="password" class="ws-key" data-f="Key" autocomplete="off" />
+        </div>
+        <div class="ws-small ws-muted ws-keynote" style="margin:.4em 0"></div>
+        <div class="ws-row"><button is="emby-button" type="button" class="raised ws-test"><span>Test and load users</span></button><span class="ws-result ws-small"></span></div>
+      </div>
+    </div>
+    <div class="ws-card">
+      <h3>User pairs</h3>
+      <p class="ws-small ws-muted" style="margin-top:0">Pick which user on Source A goes with which user on Source B. Test both sources first to load their users.</p>
+      <div id="wsPairRows"></div>
+      <button is="emby-button" type="button" class="raised" id="wsAddPair"><span>Add a pair</span></button>
+    </div>
+    <button is="emby-button" type="button" class="raised button-submit block" id="wsSaveSources"><span>Save</span></button>
+  </div>
+
+  <!-- Continue Watching -->
+  <div class="ws-pane" data-pane="cw">
+    <div class="ws-card">
+      <div class="ws-row ws-between">
+        <div class="ws-row"><span>User pair</span><select class="ws-native" id="wsCwPair"></select></div>
+        <div class="ws-row">
+          <button is="emby-button" type="button" class="raised" id="wsCwRefresh"><span>Refresh</span></button>
+          <button is="emby-button" type="button" class="raised button-submit" id="wsCwFix"><span>Fix now</span></button>
+        </div>
+      </div>
+      <p class="ws-small ws-muted" style="margin:.6em 0 0">Titles in progress on each server, in the order it shows them. Marked rows differ on the other side. <b>Fix now</b> runs a full sync for this pair.</p>
+    </div>
+    <div id="wsCwBody"></div>
+  </div>
+
+  <!-- Settings -->
+  <div class="ws-pane" data-pane="settings">
+    <div class="ws-card">
+      <h3>What to sync</h3>
+      <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="SyncWatched" /><span>Watched and unwatched</span></label>
+      <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="SyncProgress" /><span>Resume positions (Continue Watching)</span></label>
+      <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="SyncRemovals" /><span>Removing a title from Continue Watching</span></label>
+      <div class="selectContainer" style="margin-top:1em">
+        <select is="emby-select" id="Direction" label="Direction">
+          <option value="both">Both ways (the most recent change wins)</option>
+          <option value="atob">Source A to Source B only</option>
+          <option value="btoa">Source B to Source A only</option>
+        </select>
+      </div>
+      <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="DryRun" /><span>Preview only: work out the changes but don't write them</span></label>
+      <div class="fieldDescription">Leave this on for the first sync, check the list on the Status tab, then press <b>Apply the preview</b> or turn it off.</div>
+    </div>
+    <div class="ws-card">
+      <h3>Timing and thresholds</h3>
+      <div class="inputContainer"><input is="emby-input" type="number" min="1" id="PollMinutes" label="Check for changes every (minutes)" /><div class="fieldDescription">Plays on this Emby server are picked up within a minute anyway.</div></div>
+      <div class="inputContainer"><input is="emby-input" type="number" min="1" id="FullSyncHours" label="Full comparison every (hours)" /><div class="fieldDescription">Catches titles marked unwatched and anything a quick check missed.</div></div>
+      <div class="inputContainer"><input is="emby-input" type="number" min="50" max="99" id="EmbyWatchedPercent" label="Emby: watched after (%)" /><div class="fieldDescription">Match Emby's own "Max resume percentage" (Settings → Library → Resume).</div></div>
+      <div class="inputContainer"><input is="emby-input" type="number" min="50" max="99" id="PlexWatchedPercent" label="Plex: watched after (%)" /><div class="fieldDescription">Match Plex's "Video played threshold" (Settings → Library).</div></div>
+      <div class="inputContainer"><input is="emby-input" type="number" min="0" id="MinProgressSeconds" label="Ignore positions under (seconds)" /></div>
+    </div>
+    <div class="ws-card">
+      <h3>Start over</h3>
+      <p class="ws-small ws-muted" style="margin-top:0">Forget what was synced, so the next pass compares every title again as if it were the first.</p>
+      <button is="emby-button" type="button" class="raised" id="wsReset"><span>Reset sync state</span></button>
+    </div>
+    <button is="emby-button" type="button" class="raised button-submit block" id="wsSaveSettings"><span>Save</span></button>
+  </div>
+
+  <!-- Log -->
+  <div class="ws-pane" data-pane="log">
+    <div class="ws-log" id="wsLog"></div>
+  </div>
+
+</div>
+</div>
+</div>
