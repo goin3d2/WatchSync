@@ -112,7 +112,7 @@ namespace WatchSync.Api
             if (Engine.Running) return JsonResult(new Dictionary<string, object> { ["ok"] = false, ["message"] = "A sync pass is already running" });
             var c = Plugin.Instance.Configuration;
             var pairs = r.Pair >= 0 && r.Pair < c.Pairs.Count ? new List<UserPair> { c.Pairs[r.Pair] } : c.Pairs.Where(p => p.Enabled).ToList();
-            _ = Task.Run(() => Engine.RunPairs(pairs, r.Full, r.Apply, CancellationToken.None));
+            _ = Task.Run(() => Engine.RunPairs(pairs, r.Full, r.Apply, CancellationToken.None, manual: true));
             return JsonResult(new Dictionary<string, object> { ["ok"] = true });
         }
 

@@ -16,7 +16,7 @@ namespace WatchSync.Tasks
         public string Category => "WatchSync";
 
         public Task Execute(CancellationToken cancellationToken, IProgress<double> progress) =>
-            Plugin.Instance.Engine.RunAll(true, false, cancellationToken);
+            Plugin.Instance.Engine.RunAll(true, false, cancellationToken, manual: true);
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() => Array.Empty<TaskTriggerInfo>();
     }

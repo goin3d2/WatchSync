@@ -52,6 +52,11 @@ press **Apply the preview** or turn Preview off.
 - **A full pass** every *Full comparison every* hours (default 6), and from Scheduled Tasks →
   *Sync watch history (WatchSync)* or the **Full sync** button.
 
+If a pass fails (the other server is down or too busy to answer), automatic passes wait 5
+minutes, then 10, 20, 40 and at most 60 before trying again; **Full sync** always runs straight away.
+With **Preview only** on, the plan is worked out on the full-sync schedule or with **Full sync**,
+not on every check.
+
 When the same title changed on both sides since the last pass, the most recent change wins.
 *Direction* can limit syncing to one way.
 

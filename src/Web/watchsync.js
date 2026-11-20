@@ -237,7 +237,9 @@ define(['loading', 'emby-input', 'emby-button', 'emby-checkbox', 'emby-select'],
                     card('Already the same', fmtN(p.in_sync), '') +
                     card(s.dry_run ? 'Changes to make' : 'Written last pass', fmtN(s.dry_run ? p.plan.length : p.applied), '') +
                     card('Not matched', fmtN(p.unmatched.length), 'on the last full pass') + '</div>';
-                var err = p.error ? '<div class="ws-alert bad">' + esc(p.error) + '</div>' : '';
+                var retry = p.retry_at && p.retry_at * 1000 > Date.now()
+                    ? ' Automatic passes try again at ' + new Date(p.retry_at * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '; Full sync runs now.' : '';
+                var err = p.error ? '<div class="ws-alert bad">' + esc(p.error) + retry + '</div>' : '';
                 var plan = s.dry_run ? '<h3>Planned changes</h3>' + table(p.plan, [
                     ['Title', function (r) { return esc(r.title); }], ['', function (r) { return esc(r.dir); }],
                     ['Change', function (r) { return esc(r.what); }], ['Played', function (r) { return when(r.when); }]]) : '';

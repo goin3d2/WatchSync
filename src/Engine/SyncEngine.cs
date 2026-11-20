@@ -113,6 +113,8 @@ namespace WatchSync.Engine
         {
             public string Id, NameA, NameB, Error, Kind;
             public long LastRun, Seconds;
+            public int Failures;      // passes in a row that failed
+            public long RetryAt;      // automatic passes wait until then after a failure
             public int Checked, Matched, Applied, InSync;
             public List<object> Recent = new List<object>();
             public List<object> Unmatched = new List<object>();
@@ -210,10 +212,12 @@ namespace WatchSync.Engine
 
         static bool Same(string a, string b) => string.Equals((a ?? "").Replace("-", ""), (b ?? "").Replace("-", ""), StringComparison.OrdinalIgnoreCase);
 
-        public Task RunAll(bool full, bool apply, CancellationToken ct) =>
-            RunPairs(_cfg().Pairs.Where(p => p.Enabled && p.UserA.Length > 0 && p.UserB.Length > 0).ToList(), full, apply, ct);
+        public Task RunAll(bool full, bool apply, CancellationToken ct, bool manual = false) =>
+            RunPairs(_cfg().Pairs.Where(p => p.Enabled && p.UserA.Length > 0 && p.UserB.Length > 0).ToList(), full, apply, ct, manual);
 
-        public async Task RunPairs(IEnumerable<UserPair> pairs, bool full, bool apply, CancellationToken ct)
+        /// <summary><paramref name="manual"/>: asked for from the page or the scheduled task, so it runs even
+        /// while automatic passes are backing off after a failure.</summary>
+        public async Task RunPairs(IEnumerable<UserPair> pairs, bool full, bool apply, CancellationToken ct, bool manual = false)
         {
             if (!await _run.WaitAsync(0, ct).ConfigureAwait(false)) return;
             try
@@ -221,12 +225,28 @@ namespace WatchSync.Engine
                 foreach (var p in pairs.ToList())
                 {
                     ct.ThrowIfCancellationRequested();
-                    try { await Cycle(p, full, apply, ct).ConfigureAwait(false); }
+                    PairStatus st;
+                    lock (_lock) st = StatusOf(_cfg(), p);
+                    // After a failure (a server down or too busy to answer), automatic passes wait longer
+                    // each time instead of loading everything again every few minutes.
+                    if (!manual && st.RetryAt > Store.Now()) continue;
+                    try
+                    {
+                        await Cycle(p, full, apply, ct).ConfigureAwait(false);
+                        lock (_lock) { st.Failures = 0; st.RetryAt = 0; }
+                    }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                     catch (Exception e)
                     {
-                        Log.Error($"{p.NameA} ↔ {p.NameB}: {e.Message}");
-                        lock (_lock) StatusOf(_cfg(), p).Error = e.Message;
+                        int wait;
+                        lock (_lock)
+                        {
+                            st.Error = e.Message;
+                            st.Failures++;
+                            wait = Math.Min(60, 5 << Math.Min(4, st.Failures - 1));
+                            st.RetryAt = Store.Now() + wait * 60L;
+                        }
+                        Log.Error($"{p.NameA} ↔ {p.NameB}: {e.Message} (trying again in {wait} min)");
                     }
                 }
             }
@@ -261,7 +281,16 @@ namespace WatchSync.Engine
             var started = Store.Now();
             var t0 = DateTime.UtcNow;
             var dry = c.DryRun && !apply;
-            full = full || dry || ps.FullAt == 0 || started - ps.FullAt > Math.Max(1, c.FullSyncHours) * 3600L;
+            var fullDue = ps.FullAt == 0 || started - ps.FullAt > Math.Max(1, c.FullSyncHours) * 3600L;
+            if (dry && !full)
+            {
+                // Preview only plans a full pass. Polls and playback don't redo it; it's refreshed on the
+                // full-sync schedule or with the Full sync button.
+                PairStatus prev;
+                lock (_lock) prev = StatusOf(c, p);
+                if (prev.Kind == "preview" && started - prev.LastRun < Math.Max(1, c.FullSyncHours) * 3600L) return;
+            }
+            full = full || dry || fullDue;
             var label = $"{p.NameA} ↔ {p.NameB}";
 
             _phase = $"{label}: reading";
@@ -448,6 +477,7 @@ namespace WatchSync.Engine
                 st.Recent = recent.Concat(st.Recent).Take(200).ToList();
                 if (full) st.Unmatched = unmatched.Take(300).ToList();
             }
+            Log.Debug($"{label}: pass done in {(DateTime.UtcNow - t0).TotalSeconds:0}s");
             if (dry) Log.Info($"{label}: preview: {pushes.Count(x => !x.Reorder)} changes to make, {matched} titles matched, {unmatched.Count} not matched (nothing written)");
             else if (full || applied > 0) Log.Info($"{label}: {(full ? "full pass" : "changes")}: {applied} written, {matched} matched, {inSync} already the same{(full ? $", {unmatched.Count} not matched" : "")}");
         }
@@ -540,7 +570,7 @@ namespace WatchSync.Engine
                         return (object)new Dictionary<string, object>
                         {
                             ["index"] = i, ["a"] = p.NameA, ["b"] = p.NameB, ["enabled"] = p.Enabled,
-                            ["last"] = s?.LastRun ?? 0, ["kind"] = s?.Kind, ["seconds"] = s?.Seconds ?? 0, ["error"] = s?.Error,
+                            ["last"] = s?.LastRun ?? 0, ["kind"] = s?.Kind, ["seconds"] = s?.Seconds ?? 0, ["error"] = s?.Error, ["retry_at"] = s?.RetryAt ?? 0,
                             ["checked"] = s?.Checked ?? 0, ["matched"] = s?.Matched ?? 0, ["in_sync"] = s?.InSync ?? 0, ["applied"] = s?.Applied ?? 0,
                             ["tracked"] = ps?.Items.Count ?? 0, ["full_at"] = ps?.FullAt ?? 0,
                             ["plan"] = s?.Plan ?? new List<object>(), ["recent"] = (s?.Recent ?? new List<object>()).Take(50).ToList(),
